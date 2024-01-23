@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 import utlis
 from MotorModule import Motor
+import queue
+import threading 
+from classification import onPredictSign, SVM, localization
+from time import sleep
+from classification import training
 
 curveList = []
 avgVal = 10
@@ -27,7 +32,7 @@ def getLaneCurve(img, display=2):
 
     #### STEP 4
     curveList.append(curveRaw)
-    if len(curveList) > avgVal:  # chỉ giữ 10 giá trị trong danh sách
+    if len(curveList) > avgVal:  # giá trị trong danh sách
         curveList.pop(0)
     curve = int(sum(curveList) / len(curveList))
 
@@ -64,9 +69,9 @@ def getLaneCurve(img, display=2):
 
     ## Chuẩn hóa số liệu
     curve /= 100  # Tính %
-    if curve > 0.2:
+    if curve > 0.15:
         curve = 1
-    elif curve < -0.2:
+    elif curve < -0.15:
         curve = -1
     else:
         curve = 0
@@ -75,34 +80,67 @@ def getLaneCurve(img, display=2):
 
 
 if __name__ == "__main__":
-    motor = Motor(6, 13, 12, 16)
+    # motor
+    motor = Motor(13, 12, 16)
     #cap = cv2.VideoCapture("vid1.mp4")
     cap = cv2.VideoCapture(0)
-    intalTrackBarVals = [80, 163, 40, 240]
+    intalTrackBarVals = [80, 163, 20, 240]
     utlis.initializeTrackbars(intalTrackBarVals)
-    frameCounter = 0
+    
+#    q = queue.Queue()
+#    t = threading.Thread(target=onPredictSign, args=(q, cap))
+#    t.start()
+    model = training()
+
+    
+    
+    motor.motorB_start();
+    flag = True
 
     while True:
+        success,frame = cap.read()  # GET THE IMAGE
+        if not success:
+            print("FINISHED")
+            break
+        width = frame.shape[1]
+        height = frame.shape[0]
+        frame = cv2.resize(frame, (480, 240))  # RESIZE
         
-        # lặp lại video
-        #frameCounter += 1
-        #if cap.get(cv2.CAP_PROP_FRAME_COUNT) == frameCounter:
-            #cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            #frameCounter = 0
-
-        success, img = cap.read()  # GET THE IMAGE
-        img = cv2.resize(img, (480, 240))  # RESIZE
-        cv2.imshow("Vid", img)
-        curve = getLaneCurve(img)
-        print(curve)
-        motor.motorB_forward(50)
+        curve = getLaneCurve(frame)
+#        coordinate, image, sign_type, text = localization(frame,min_size_components, similitary_contour_with_circle, model)
+#        if (sign_type > 0):
+#            print(SIGNS[sign_type])
+        sign = onPredictSign(cap, model)
+#        sign = q.get()
+        
+        
+#        print(sign)
+        
+#        print(curve)
+        if flag:
+            motor.motorB_forward(35)
         if curve == -1:
-            # left
+            print("left")
             motor.motorA_left()
         elif curve == 1:
-            #right
+            print("right")
             motor.motorA_right()
         else:
-            #forward
+            print("forward")
             motor.motorA_forward()
-        cv2.waitKey(1)
+            
+        if (sign == 1):
+            motor.stop_all()
+            print(sign)
+            flag = False
+        elif (sign == 6):
+            motor.motorB_start()
+            #motor.motorA_start()
+            print(sign)
+            flag = True
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            motor.stop_all()
+            motor.gpip_cleanup()
+            cv2.destroyAllWindows()
+            break

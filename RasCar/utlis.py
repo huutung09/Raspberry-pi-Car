@@ -4,7 +4,7 @@ import numpy as np
 
 def thresholding(img):
     imgHsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)  # Chuyển đổi ảnh sang không gian màu HSV
-    lowerWhite = np.array([73, 0, 0])  # Giá trị màu nhỏ nhất (màu đen)
+    lowerWhite = np.array([70, 0, 112])  # Giá trị màu nhỏ nhất (màu đen)
     upperWhite = np.array([179, 255, 255])  # Giá trị màu lớn nhất (màu trắng)
     maskWhite = cv2.inRange(imgHsv, lowerWhite, upperWhite)
     return maskWhite
